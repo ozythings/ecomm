@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import path from "path";
 
 const dbPath = path.join(process.cwd(), 'ecomm.db');
@@ -77,6 +77,7 @@ CREATE TABLE reviews (
 `;
 
 console.log("Initializing Database...");
+// bun:sqlite exec runs multiple statements just like better-sqlite3
 db.exec(initSql);
 console.log("Database initialized at " + dbPath);
 console.log("Please ensure you populate it with data (you can use your python script to load CSVs into this file).");
