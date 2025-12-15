@@ -1,7 +1,9 @@
-import type { NextConfig } from "next";
+import type {NextConfig} from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+    env: {
+        api: "http://localhost:80",
+    }
 };
 
 export default nextConfig;
