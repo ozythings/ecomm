@@ -7,6 +7,55 @@ const db = new Database(dbPath);
 const initSql = `
 PRAGMA foreign_keys = ON;
 
+DROP TABLE IF EXISTS admins;
+CREATE TABLE admins (
+    admin_id TEXT PRIMARY KEY,
+    name TEXT,
+    surname TEXT,
+    email TEXT,
+    password TEXT,
+    password_hash TEXT,
+    gender TEXT,
+    signup_date TIMESTAMP
+);
+
+DROP TABLE IF EXISTS actions;
+CREATE TABLE actions (
+    action_id INTEGER PRIMARY KEY,
+    action_type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_date TIMESTAMP
+);
+
+DROP TABLE IF EXISTS auth_logs;
+CREATE TABLE auth_logs (
+    log_id INTEGER PRIMARY KEY,
+    admin_id TEXT NOT NULL,
+    action_id INTEGER NOT NULL,
+    ip_address TEXT,
+    signin_date TIMESTAMP,
+    signout_date TIMESTAMP,
+    log_date TIMESTAMP,
+
+    FOREIGN KEY(admin_id) REFERENCES admins(admin_id),
+    FOREIGN KEY(action_id) REFERENCES actions(action_id)
+);
+
+
+DROP TABLE IF EXISTS action_logs;
+CREATE TABLE action_logs (
+    log_id INTEGER PRIMARY KEY,
+    admin_id TEXT NOT NULL,
+    action_id INTEGER NOT NULL,
+    product_id TEXT  NOT NULL,
+    old_data TIMESTAMP,
+    new_data TIMESTAMP,
+    log_date TIMESTAMP,
+
+    FOREIGN KEY(admin_id) REFERENCES admins(admin_id),
+    FOREIGN KEY(action_id) REFERENCES actions(action_id)
+);
+
 DROP TABLE IF EXISTS users;
 CREATE TABLE users (
     user_id TEXT PRIMARY KEY,
@@ -34,6 +83,7 @@ CREATE TABLE orders (
     order_date TIMESTAMP,
     order_status TEXT,
     total_amount REAL,
+    
     FOREIGN KEY(user_id) REFERENCES users(user_id)
 );
 
@@ -46,6 +96,7 @@ CREATE TABLE order_items (
     quantity INTEGER,
     item_price REAL,
     item_total REAL,
+    
     FOREIGN KEY(order_id) REFERENCES orders(order_id),
     FOREIGN KEY(product_id) REFERENCES products(product_id)
 );
@@ -57,6 +108,7 @@ CREATE TABLE events (
     product_id TEXT,
     event_type TEXT,
     event_timestamp TIMESTAMP,
+    
     FOREIGN KEY(user_id) REFERENCES users(user_id),
     FOREIGN KEY(product_id) REFERENCES products(product_id)
 );
@@ -70,6 +122,7 @@ CREATE TABLE reviews (
     rating INTEGER,
     review_text TEXT,
     review_date TIMESTAMP,
+    
     FOREIGN KEY(order_id) REFERENCES orders(order_id),
     FOREIGN KEY(product_id) REFERENCES products(product_id),
     FOREIGN KEY(user_id) REFERENCES users(user_id)
