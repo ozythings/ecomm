@@ -1,18 +1,21 @@
 const express = require('express');
+const parser = require('body-parser');
 const cors = require('cors');
 
 const app = express();
 
 // Global Middlewares
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({extended: true}));
+app.use(parser.json());
+app.use(parser.urlencoded({extended: true}));
 
 // Routes
 const indexRouter = require('./routes');
+const authRouter = require('./routes/auth');
 
 // Use Routes
 app.use('/', indexRouter);
+app.use('/auth', authRouter);
 
 // Not Found
 app.use((req, res) => {
