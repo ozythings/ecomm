@@ -1,17 +1,24 @@
-import {NextRequest, NextResponse} from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-const not_authenticated = ["/auth"];
-
-export function middleware(req: NextRequest, res: NextResponse) {
+export function middleware(req: NextRequest) {
     const {pathname} = req.nextUrl;
-    const req_auth = not_authenticated.some((p) => pathname.startsWith(p));
-    const token = req.cookies.get("token")?.value
+    const token = req.cookies.get("token")?.value;
 
-    if (!req_auth) return NextResponse.next();
-    if (token) {
+    if (pathname.startsWith("/auth")) {
+        if (token) {
+            const url = req.nextUrl.clone();
+
+            url.pathname = "/";
+            return NextResponse.redirect(url);
+        }
+
+        return NextResponse.next();
+    }
+
+    if (!token) {
         const url = req.nextUrl.clone();
-        url.pathname = "/";
-        url.searchParams.set("next", pathname);
+
+        url.pathname = "/auth/signin";
         return NextResponse.redirect(url);
     }
 
@@ -19,5 +26,7 @@ export function middleware(req: NextRequest, res: NextResponse) {
 }
 
 export const config = {
-    matcher: ["/auth/:path*"],
+    matcher: [
+        "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|map)$).*)",
+    ],
 };
