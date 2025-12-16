@@ -32,7 +32,8 @@ export default function page() {
                 "Content-Type": "application/json",
             },
             method: "POST",
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
+            credentials: "include"
         });
         const json = await res.json();
 
@@ -43,6 +44,7 @@ export default function page() {
         }
 
         sessionStorage.setItem("token", "Bearer " + json.token);
+
         setError(null);
         setData(obj);
     }

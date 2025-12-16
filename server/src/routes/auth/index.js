@@ -19,6 +19,15 @@ router.post('/signin', async (req, res) => {
         expiresIn: '1d',
     });
 
+    // set cookie
+    res.cookie("token", token, {
+        httpOnly: true,
+        secure: false, // static: true
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000,
+        path: "/",
+    });
+
     // LOGGING to db // try-catch
     db.prepare(`
         INSERT INTO auth_logs (admin_id, action_id, ip_address, signin_date, log_date)
