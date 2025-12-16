@@ -1,6 +1,7 @@
 "use client"
 
 import React, {useState} from "react";
+import {redirect} from "next/navigation";
 
 type Data = {
     email: string,
@@ -47,6 +48,7 @@ export default function page() {
 
         setError(null);
         setData(obj);
+        redirect("/");
     }
 
     return (
