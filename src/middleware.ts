@@ -1,25 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
     const {pathname} = req.nextUrl;
     const token = req.cookies.get("token")?.value;
 
-    if (pathname.startsWith("/auth")) {
-        if (token) {
-            const url = req.nextUrl.clone();
+    if (pathname.startsWith("/auth") && token) {
+        const url = req.nextUrl.clone();
 
-            url.pathname = "/";
-            return NextResponse.redirect(url);
-        }
-
-        return NextResponse.next();
-    }
+        url.pathname = "/";
+        return NextResponse.redirect(url);
+    } else NextResponse.next();
 
     if (!token) {
         const url = req.nextUrl.clone();
 
         url.pathname = "/auth/signin";
         return NextResponse.redirect(url);
+    } else {
+        const res = await fetch(process.env.api + "/auth/me", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                token,
+            }
+        });
+        const json = await res.json();
+
+        if (json.status !== 200) {
+            sessionStorage.removeItem("token");
+
+        }
     }
 
     return NextResponse.next();

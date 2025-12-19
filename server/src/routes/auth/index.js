@@ -66,4 +66,25 @@ router.post('/signout', async (req, res) => {
     });
 });
 
+// POST /auth/me
+router.post('/me', async (req, res) => {
+    const {token} = req.headers;
+
+    jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+        if (err) {
+            res.clearCookie('token');
+
+            return res.status(401).send({
+                status: 401,
+                message: 'Incorrect token!',
+            });
+        }
+
+        return res.status(200).send({
+            status: 200,
+            message: 'ok',
+        });
+    });
+});
+
 module.exports = router;
