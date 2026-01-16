@@ -260,10 +260,6 @@ export async function createRecord(table: string, data: Record<string, any>) {
   const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events'];
   if (!allowed.includes(table)) throw new Error("Invalid table");
 
-  if (table === 'order_items' && data.user_id) {
-    delete data.user_id;
-  }
-
   const keys = Object.keys(data);
   const values = Object.values(data);
   const placeholders = keys.map(() => '?').join(', ');
@@ -278,10 +274,6 @@ export async function createRecord(table: string, data: Record<string, any>) {
 export async function updateRecord(table: string, id: string | number, data: Record<string, any>) {
   const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events'];
   if (!allowed.includes(table)) throw new Error("Invalid table");
-
-  if (table === 'order_items' && data.user_id) {
-    delete data.user_id;
-  }
 
   const pk = getPrimaryKey(table);
   const sets = Object.keys(data).map(key => `${key} = ?`).join(', ');
