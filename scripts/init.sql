@@ -67,3 +67,15 @@ CREATE TABLE reviews (
     FOREIGN KEY(product_id) REFERENCES products(product_id),
     FOREIGN KEY(user_id) REFERENCES users(user_id)
 );
+
+DROP TABLE IF EXISTS audit_logs;
+CREATE TABLE audit_logs (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    action TEXT NOT NULL CHECK(action IN ('CREATE', 'UPDATE', 'DELETE')),
+    performed_by TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    old_values TEXT,
+    new_values TEXT
+);

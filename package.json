@@ -10,6 +10,7 @@
     "db:setup": "bun scripts/setup_db.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.5.0",
     "lucide-react": "^0.555.0",
     "next": "16.0.7",

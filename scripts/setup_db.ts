@@ -1,13 +1,29 @@
-import { Database } from "bun:sqlite";
+import Database from 'better-sqlite3';
 import path from "path";
 
 const dbPath = path.join(process.cwd(), 'ecomm.db');
 const db = new Database(dbPath);
 
 const initSql = `
+-- 1. ÖNCE GÜVENLİK KİLİDİNİ KAPAT (Silme işlemi için şart)
+PRAGMA foreign_keys = OFF;
+
+-- 2. TABLOLARI TEMİZLE (Sıralama fark etmez çünkü kilit kapalı)
+DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS auth_logs;
+
+-- 3. GÜVENLİK KİLİDİNİ TEKRAR AÇ (Yaratma işlemi için)
 PRAGMA foreign_keys = ON;
 
-DROP TABLE IF EXISTS users;
+-- 4. TABLOLARI OLUŞTUR
+
+-- USERS
 CREATE TABLE users (
     user_id TEXT PRIMARY KEY,
     name TEXT,
@@ -17,7 +33,7 @@ CREATE TABLE users (
     signup_date TIMESTAMP
 );
 
-DROP TABLE IF EXISTS products;
+-- PRODUCTS
 CREATE TABLE products (
     product_id TEXT PRIMARY KEY,
     product_name TEXT,
@@ -27,7 +43,7 @@ CREATE TABLE products (
     rating REAL
 );
 
-DROP TABLE IF EXISTS orders;
+-- ORDERS
 CREATE TABLE orders (
     order_id TEXT PRIMARY KEY,
     user_id TEXT,
@@ -37,12 +53,11 @@ CREATE TABLE orders (
     FOREIGN KEY(user_id) REFERENCES users(user_id)
 );
 
-DROP TABLE IF EXISTS order_items;
+-- ORDER ITEMS (3NF - user_id yok)
 CREATE TABLE order_items (
     order_item_id TEXT PRIMARY KEY,
     order_id TEXT,
     product_id TEXT,
-    user_id TEXT,
     quantity INTEGER,
     item_price REAL,
     item_total REAL,
@@ -50,7 +65,7 @@ CREATE TABLE order_items (
     FOREIGN KEY(product_id) REFERENCES products(product_id)
 );
 
-DROP TABLE IF EXISTS events;
+-- EVENTS
 CREATE TABLE events (
     event_id TEXT PRIMARY KEY,
     user_id TEXT,
@@ -61,7 +76,7 @@ CREATE TABLE events (
     FOREIGN KEY(product_id) REFERENCES products(product_id)
 );
 
-DROP TABLE IF EXISTS reviews;
+-- REVIEWS
 CREATE TABLE reviews (
     review_id TEXT PRIMARY KEY,
     order_id TEXT,
@@ -74,10 +89,37 @@ CREATE TABLE reviews (
     FOREIGN KEY(product_id) REFERENCES products(product_id),
     FOREIGN KEY(user_id) REFERENCES users(user_id)
 );
+
+-- AUDIT LOGS
+CREATE TABLE audit_logs (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    action TEXT NOT NULL CHECK(action IN ('CREATE', 'UPDATE', 'DELETE')),
+    performed_by TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    old_values TEXT,
+    new_values TEXT
+);
+
+-- AUTH LOGS
+CREATE TABLE auth_logs (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    event_type TEXT NOT NULL CHECK(event_type IN ('LOGIN', 'LOGOUT', 'REGISTER', 'FAILED_LOGIN')),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address TEXT,
+    user_agent TEXT,
+    details TEXT
+);
 `;
 
-console.log("Initializing Database...");
-// bun:sqlite exec runs multiple statements just like better-sqlite3
-db.exec(initSql);
-console.log("Database initialized at " + dbPath);
-console.log("Please ensure you populate it with data (you can use your python script to load CSVs into this file).");
+console.log("⏳ Initializing Database...");
+
+try {
+  db.exec(initSql);
+  console.log("✅ Database initialized successfully at: " + dbPath);
+  console.log("ℹ️  Foreign Keys temporarily disabled for cleanup, then re-enabled.");
+} catch (error) {
+  console.error("❌ Error initializing database:", error);
+}
