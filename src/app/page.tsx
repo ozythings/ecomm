@@ -1,5 +1,6 @@
 import { getDashboardStats } from "./actions";
-import { Users, DollarSign, ShoppingBag, ArrowUpRight, Crown, Activity } from "lucide-react";
+import { Users, DollarSign, ShoppingBag, ArrowUpRight, Crown } from "lucide-react";
+import Link from "next/link";
 
 export default async function Dashboard() {
   const stats = await getDashboardStats();
@@ -7,7 +8,6 @@ export default async function Dashboard() {
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
 
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight text-[#1d1d1f]">Overview</h1>
@@ -20,7 +20,6 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Section - Apple Style Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <KpiCard
           title="Total Revenue"
@@ -47,13 +46,16 @@ export default async function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-        {/* Recent Orders - Minimalist Table */}
         <div className="bg-white rounded-3xl p-8 shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-semibold tracking-tight">Recent Orders</h2>
-            <button className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors">
+            
+            <Link 
+              href="/tables/orders" 
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+            >
               View All <ArrowUpRight className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
 
           <div className="overflow-x-auto">
@@ -85,9 +87,7 @@ export default async function Dashboard() {
           </div>
         </div>
 
-        {/* VIP Customers - Highlight Card */}
         <div className="bg-white rounded-3xl p-8 shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-gray-100 relative overflow-hidden">
-          {/* Subtle background decoration */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-100/50 to-transparent rounded-bl-full -mr-16 -mt-16 pointer-events-none" />
 
           <div className="flex items-center gap-3 mb-8 relative z-10">
@@ -131,8 +131,6 @@ export default async function Dashboard() {
     </div>
   );
 }
-
-// --- Helper Components for Aesthetic Consistency ---
 
 function KpiCard({ title, value, icon, trend, color }: any) {
   return (
