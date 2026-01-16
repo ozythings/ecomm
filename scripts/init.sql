@@ -1,29 +1,7 @@
-import Database from 'better-sqlite3';
-import path from "path";
-
-const dbPath = path.join(process.cwd(), 'ecomm.db');
-const db = new Database(dbPath);
-
-const initSql = `
--- 1. ÖNCE GÜVENLİK KİLİDİNİ KAPAT (Silme işlemi için şart)
-PRAGMA foreign_keys = OFF;
-
--- 2. TABLOLARI TEMİZLE (Sıralama fark etmez çünkü kilit kapalı)
-DROP TABLE IF EXISTS reviews;
-DROP TABLE IF EXISTS order_items;
-DROP TABLE IF EXISTS events;
-DROP TABLE IF EXISTS orders;
-DROP TABLE IF EXISTS products;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS audit_logs;
-DROP TABLE IF EXISTS auth_logs;
-
--- 3. GÜVENLİK KİLİDİNİ TEKRAR AÇ (Yaratma işlemi için)
+-- sqlite foreign key thingy
 PRAGMA foreign_keys = ON;
 
--- 4. TABLOLARI OLUŞTUR
-
--- USERS
+DROP TABLE IF EXISTS users;
 CREATE TABLE users (
     user_id TEXT PRIMARY KEY,
     name TEXT,
@@ -33,7 +11,7 @@ CREATE TABLE users (
     signup_date TIMESTAMP
 );
 
--- PRODUCTS
+DROP TABLE IF EXISTS products;
 CREATE TABLE products (
     product_id TEXT PRIMARY KEY,
     product_name TEXT,
@@ -43,7 +21,7 @@ CREATE TABLE products (
     rating REAL
 );
 
--- ORDERS
+DROP TABLE IF EXISTS orders;
 CREATE TABLE orders (
     order_id TEXT PRIMARY KEY,
     user_id TEXT,
@@ -53,19 +31,19 @@ CREATE TABLE orders (
     FOREIGN KEY(user_id) REFERENCES users(user_id)
 );
 
--- ORDER ITEMS (3NF - user_id yok)
+DROP TABLE IF EXISTS order_items;
 CREATE TABLE order_items (
     order_item_id TEXT PRIMARY KEY,
     order_id TEXT,
     product_id TEXT,
     quantity INTEGER,
     item_price REAL,
-    item_total REAL,
+    item_total REAL, -- Bunu şimdilik tutuyoruz (sadece user_id siliyoruz)
     FOREIGN KEY(order_id) REFERENCES orders(order_id),
     FOREIGN KEY(product_id) REFERENCES products(product_id)
 );
 
--- EVENTS
+DROP TABLE IF EXISTS events;
 CREATE TABLE events (
     event_id TEXT PRIMARY KEY,
     user_id TEXT,
@@ -76,7 +54,7 @@ CREATE TABLE events (
     FOREIGN KEY(product_id) REFERENCES products(product_id)
 );
 
--- REVIEWS
+DROP TABLE IF EXISTS reviews;
 CREATE TABLE reviews (
     review_id TEXT PRIMARY KEY,
     order_id TEXT,
@@ -90,7 +68,7 @@ CREATE TABLE reviews (
     FOREIGN KEY(user_id) REFERENCES users(user_id)
 );
 
--- AUDIT LOGS
+DROP TABLE IF EXISTS audit_logs;
 CREATE TABLE audit_logs (
     log_id INTEGER PRIMARY KEY AUTOINCREMENT,
     table_name TEXT NOT NULL,
@@ -101,25 +79,3 @@ CREATE TABLE audit_logs (
     old_values TEXT,
     new_values TEXT
 );
-
--- AUTH LOGS
-CREATE TABLE auth_logs (
-    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT,
-    event_type TEXT NOT NULL CHECK(event_type IN ('LOGIN', 'LOGOUT', 'REGISTER', 'FAILED_LOGIN')),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    ip_address TEXT,
-    user_agent TEXT,
-    details TEXT
-);
-`;
-
-console.log("⏳ Initializing Database...");
-
-try {
-  db.exec(initSql);
-  console.log("✅ Database initialized successfully at: " + dbPath);
-  console.log("ℹ️  Foreign Keys temporarily disabled for cleanup, then re-enabled.");
-} catch (error) {
-  console.error("❌ Error initializing database:", error);
-}

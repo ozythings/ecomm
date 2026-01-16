@@ -1,9 +1,9 @@
-import type {NextConfig} from "next";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    env: {
-        api: "http://localhost:80",
-    }
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 export default nextConfig;

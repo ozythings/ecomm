@@ -1,42 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
-    const {pathname} = req.nextUrl;
-    const token = req.cookies.get("token")?.value;
+export function middleware(request: NextRequest) {
+  let ip = request.ip || request.headers.get('x-forwarded-for') || '127.0.0.1';
+  
+  if (ip.includes(',')) {
+    ip = ip.split(',')[0];
+  }
 
-    if (pathname.startsWith("/auth") && token) {
-        const url = req.nextUrl.clone();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-origin-ip', ip);
 
-        url.pathname = "/";
-        return NextResponse.redirect(url);
-    } else NextResponse.next();
+  const path = request.nextUrl.pathname;
+  const isPublicPath = path === '/login';
+  const session = request.cookies.get('admin_session')?.value;
 
-    if (!token) {
-        const url = req.nextUrl.clone();
+  if (!session && !isPublicPath) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
-        url.pathname = "/auth/signin";
-        return NextResponse.redirect(url);
-    } else {
-        const res = await fetch(process.env.api + "/auth/me", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                token,
-            }
-        });
-        const json = await res.json();
+  if (session && isPublicPath) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
 
-        if (json.status !== 200) {
-            sessionStorage.removeItem("token");
-
-        }
-    }
-
-    return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 export const config = {
-    matcher: [
-        "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|map)$).*)",
-    ],
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };

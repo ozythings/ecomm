@@ -2,7 +2,6 @@
 
 import db from "../lib/db";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers"; // cookie eklendi
 
 export async function getDashboardStats() {
   // aggregate
@@ -210,43 +209,17 @@ export async function getRelatedProducts(productId: string) {
     `).all(productId, productId);
 }
 
-export async function getTableData(table: string, page: number = 1, limit: number = 50, search: string = '') {
-  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events', 'admins'];
-  if (!allowed.includes(table)) return { data: [], total: 0, page, limit };
-
-  const offset = (page - 1) * limit;
-  let query = `SELECT * FROM ${table}`;
-  let countQuery = `SELECT COUNT(*) as count FROM ${table}`;
-  const params: any[] = [];
-
-  if (search) {
-    const searchCols: Record<string, string[]> = {
-      users: ['name', 'email', 'city', 'user_id'],
-      products: ['product_name', 'category', 'brand', 'product_id'],
-      orders: ['order_id', 'order_status', 'user_id'],
-      reviews: ['review_text', 'user_id', 'product_id'],
-      admins: ['email', 'name']
-    };
-
-    const cols = searchCols[table] || [];
-    
-    if (cols.length > 0) {
-      const whereClause = ' WHERE (' + cols.map(c => `${c} LIKE ?`).join(' OR ') + ')';
-      query += whereClause;
-      countQuery += whereClause;
-      
-      cols.forEach(() => params.push(`%${search}%`));
-    }
+export async function getTableData(table: string, page: number = 1, limit: number = 50) {
+  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events'];
+  if (!allowed.includes(table)) {
+    return { data: [], total: 0, page, limit };
   }
 
-  query += ` LIMIT ? OFFSET ?`;
-  params.push(limit, offset);
+  const offset = (page - 1) * limit;
 
-  // arama parametrelerini count sorgusu için de kopyala
-  const countParams = params.slice(0, params.length - 2);
+  const data = db.prepare(`SELECT * FROM ${table} LIMIT ? OFFSET ?`).all(limit, offset);
 
-  const data = db.prepare(query).all(...params);
-  const countResult = db.prepare(countQuery).get(...countParams) as any;
+  const countResult = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as any;
 
   return {
     data,
@@ -259,217 +232,56 @@ export async function getTableData(table: string, page: number = 1, limit: numbe
 export async function getTableSchema(table: string) {
   const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events'];
   if (!allowed.includes(table)) return [];
+  // SQLite PRAGMA to get column info (cid, name, type, notnull, dflt_value, pk)
   return db.prepare(`PRAGMA table_info(${table})`).all();
 }
 
-// CRUD
+// --- CRUD Operations ---
 
 function getPrimaryKey(table: string) {
-  // users -> user_id, order_items -> order_item_id
+  // Heuristic: users -> user_id, order_items -> order_item_id
   if (table === 'order_items') return 'order_item_id';
   return table.slice(0, -1) + '_id';
 }
 
-export async function createRecord(table: string, data: Record<string, any>) {
-  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events', 'admins'];
-  if (!allowed.includes(table)) throw new Error("Invalid table");
-
-  // admin check (direct cookie)
-  const cookieStore = await cookies();
-  const sessionVal = cookieStore.get('admin_session')?.value;
-  let adminId = null;
-  if (sessionVal) {
-      try { adminId = JSON.parse(sessionVal).adminId; } catch {}
-  }
-
-  if (table === 'order_items' && data.user_id) delete data.user_id;
-  const dateFields = ['signup_date', 'order_date', 'review_date', 'event_timestamp', 'created_at'];
-  dateFields.forEach(field => {
-    if (!data[field] && (
-        (table === 'users' && field === 'signup_date') ||
-        (table === 'orders' && field === 'order_date') ||
-        (table === 'reviews' && field === 'review_date') ||
-        (table === 'events' && field === 'event_timestamp') ||
-        (table === 'admins' && field === 'created_at')
-    )) {
-       data[field] = new Date().toISOString();
-    }
-  });
-
-  const keys = Object.keys(data);
-  const values = Object.values(data);
-  const placeholders = keys.map(() => '?').join(', ');
-
-  const stmt = db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`);
-  const info = stmt.run(...values);
-
-  logAction(table, info.lastInsertRowid.toString(), 'CREATE', null, data, adminId);
-
-  revalidatePath(`/tables/${table}`);
-  return { success: true };
-}
-
-export async function updateRecord(table: string, id: string | number, data: Record<string, any>) {
-  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events', 'admins'];
-  if (!allowed.includes(table)) throw new Error("Invalid table");
-
-  const cookieStore = await cookies();
-  const sessionVal = cookieStore.get('admin_session')?.value;
-  let adminId = null;
-  if (sessionVal) {
-      try { adminId = JSON.parse(sessionVal).adminId; } catch {}
-  }
-
-  const pk = getPrimaryKey(table);
-  
-  const oldData = db.prepare(`SELECT * FROM ${table} WHERE ${pk} = ?`).get(id);
-
-  if (table === 'order_items' && data.user_id) delete data.user_id;
-
-  const sets = Object.keys(data).map(key => `${key} = ?`).join(', ');
-  const values = [...Object.values(data), id];
-
-  const stmt = db.prepare(`UPDATE ${table} SET ${sets} WHERE ${pk} = ?`);
-  stmt.run(...values);
-
-  logAction(table, String(id), 'UPDATE', oldData, data, adminId);
-
-  revalidatePath(`/tables/${table}`);
-  return { success: true };
-}
-
 export async function deleteRecord(table: string, id: string | number) {
-  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events', 'admins'];
+  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events'];
   if (!allowed.includes(table)) throw new Error("Invalid table");
 
-  const cookieStore = await cookies();
-  const sessionVal = cookieStore.get('admin_session')?.value;
-  let adminId = null;
-  if (sessionVal) {
-      try { adminId = JSON.parse(sessionVal).adminId; } catch {}
-  }
-
   const pk = getPrimaryKey(table);
-
-  const oldData = db.prepare(`SELECT * FROM ${table} WHERE ${pk} = ?`).get(id);
-
   db.prepare(`DELETE FROM ${table} WHERE ${pk} = ?`).run(id);
-
-  logAction(table, String(id), 'DELETE', oldData, null, adminId);
 
   revalidatePath(`/tables/${table}`);
   revalidatePath('/');
   return { success: true };
 }
 
-export async function getTableReferences(table: string) {
-  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events', 'admins'];
-  if (!allowed.includes(table)) return {};
+export async function createRecord(table: string, data: Record<string, any>) {
+  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events'];
+  if (!allowed.includes(table)) throw new Error("Invalid table");
 
-  const fks = db.prepare(`PRAGMA foreign_key_list(${table})`).all() as any[];
-  
-  const references: Record<string, any[]> = {};
+  const keys = Object.keys(data);
+  const values = Object.values(data);
+  const placeholders = keys.map(() => '?').join(', ');
 
-  for (const fk of fks) {
-    const targetTable = fk.table;
-    const sourceCol = fk.from;
-    const targetCol = fk.to;
+  const stmt = db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`);
+  stmt.run(...values);
 
-    const targetColumns = db.prepare(`PRAGMA table_info(${targetTable})`).all() as any[];
-    const labelCol = targetColumns.find((c: any) => 
-      ['name', 'product_name', 'email', 'title', 'brand'].includes(c.name)
-    )?.name || targetCol; // Bulamazsa ID'yi kullan
-
-    const options = db.prepare(`
-      SELECT ${targetCol} as value, ${labelCol} as label 
-      FROM ${targetTable} 
-      LIMIT 100
-    `).all();
-
-    references[sourceCol] = options;
-  }
-
-  return references;
+  revalidatePath(`/tables/${table}`);
+  return { success: true };
 }
 
-export async function generateSmartId(table: string, pkColumn: string) {
-  const rules: Record<string, { prefix: string, length: number }> = {
-    'users': { prefix: 'U', length: 6 },
-    'orders': { prefix: 'O', length: 8 },
-    
-    'products': { prefix: 'P', length: 6 }, // P000023
-    
-    'admins': { prefix: 'ADM', length: 3 },
-    'reviews': { prefix: 'REV', length: 6 },
-    'events': { prefix: 'EVT', length: 9 },
-  };
+export async function updateRecord(table: string, id: string | number, data: Record<string, any>) {
+  const allowed = ['users', 'products', 'orders', 'order_items', 'reviews', 'events'];
+  if (!allowed.includes(table)) throw new Error("Invalid table");
 
-  const rule = rules[table] || { prefix: table.charAt(0).toUpperCase(), length: 6 };
+  const pk = getPrimaryKey(table);
+  const sets = Object.keys(data).map(key => `${key} = ?`).join(', ');
+  const values = [...Object.values(data), id];
 
-  const rows = db.prepare(`
-    SELECT ${pkColumn} as id 
-    FROM ${table} 
-    WHERE ${pkColumn} LIKE ?
-  `).all(`${rule.prefix}%`) as any[];
+  const stmt = db.prepare(`UPDATE ${table} SET ${sets} WHERE ${pk} = ?`);
+  stmt.run(...values);
 
-  let maxNum = 0;
-  
-  rows.forEach(row => {
-    const numPart = row.id.replace(rule.prefix, '');
-    const num = parseInt(numPart, 10);
-    
-    if (!isNaN(num) && num > maxNum) {
-      maxNum = num;
-    }
-  });
-
-  const nextNum = maxNum + 1;
-  const paddedNum = String(nextNum).padStart(rule.length, '0');
-  
-  return `${rule.prefix}${paddedNum}`;
-}
-
-function logAction(table: string, recordId: string, action: string, oldVal: any, newVal: any, adminId: string | null) {
-  try {
-    db.prepare(`
-      INSERT INTO action_logs (table_name, record_id, action, performed_by, old_values, new_values)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      table, 
-      String(recordId), 
-      action, 
-      adminId || 'System',
-      oldVal ? JSON.stringify(oldVal) : null, 
-      newVal ? JSON.stringify(newVal) : null
-    );
-  } catch (e) {
-    console.error("Action Log Error:", e);
-  }
-}
-
-
-export async function getActionLogs(limit: number = 50) {
-  return db.prepare(`
-    SELECT 
-      a.*, 
-      adm.name as admin_name,
-      adm.email as admin_email
-    FROM action_logs a
-    LEFT JOIN admins adm ON a.performed_by = adm.admin_id
-    ORDER BY a.timestamp DESC
-    LIMIT ?
-  `).all(limit);
-}
-
-export async function getAuthLogs(limit: number = 50) {
-  return db.prepare(`
-    SELECT 
-      al.*, 
-      adm.name as admin_name,
-      adm.email as admin_email
-    FROM auth_logs al
-    LEFT JOIN admins adm ON al.user_id = adm.admin_id
-    ORDER BY al.timestamp DESC
-    LIMIT ?
-  `).all(limit);
+  revalidatePath(`/tables/${table}`);
+  return { success: true };
 }
